@@ -27,6 +27,7 @@ class InputHandler {
             'KeyD': 'right', 'ArrowRight': 'right',
             'Space': 'attack',
             'KeyE': 'interact',
+            'ShiftLeft': 'dash', 'ShiftRight': 'dash',
             'Escape': 'escape',
             'KeyC': 'debug'
         };

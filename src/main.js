@@ -53,7 +53,23 @@ function updateGame(dt) {
     const obstacles = world.getObstacles();
     const movement = game.input.getMovementVector();
 
-    player.move(movement.x * player.speed, movement.y * player.speed, obstacles);
+    // Dash
+    if (game.input.isKeyJustPressed('dash')) {
+        player.dash(performance.now(), movement.x, movement.y);
+    }
+
+    // Movement: dash overrides normal speed
+    let dx, dy;
+    if (player.dashing) {
+        const dashVel = player.speed * player.dashSpeed;
+        dx = player.dashDirection.x * dashVel;
+        dy = player.dashDirection.y * dashVel;
+    } else {
+        dx = movement.x * player.speed;
+        dy = movement.y * player.speed;
+    }
+
+    player.move(dx, dy, obstacles);
     player.update(dt);
     world.update(player);
 
@@ -96,6 +112,19 @@ function renderGame(ctx) {
     ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.font = '11px monospace';
     ctx.fillText(gameState.currentStage.name, 10, 16);
+
+    // Dash cooldown bar
+    const barX = 10, barY = 24, barW = 60, barH = 6;
+    const now = performance.now();
+    const cdEnd = player.dashTimer;
+    const cdTotal = player.dashDuration + player.dashCooldown;
+    const remaining = Math.max(0, cdEnd - now);
+    const fill = 1 - remaining / cdTotal;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.fillRect(barX, barY, barW, barH);
+    ctx.fillStyle = fill >= 1 ? '#4f4' : '#2a2';
+    ctx.fillRect(barX, barY, barW * fill, barH);
 
     // Debug overlay
     if (game.showDebug) {

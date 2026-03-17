@@ -24,6 +24,15 @@ class Player {
         this.lastDx = 0;
         this.lastDy = 0;
 
+        // Dash
+        this.dashing = false;
+        this.dashDirection = { x: 0, y: 0 };
+        this.dashSpeed = 5;        // multiplier of base speed
+        this.dashDuration = 150;   // ms
+        this.dashCooldown = 1000;  // ms
+        this.dashEndTime = 0;
+        this.dashTimer = 0;
+
         // Sprites
         this.sprites = null;
         this.loadSprites();
@@ -35,7 +44,44 @@ class Player {
         this.sprites = result.sprites;
     }
 
+    dash(currentTime, inputX, inputY) {
+        if (this.dashing || currentTime < this.dashTimer) return false;
+
+        let dx = inputX;
+        let dy = inputY;
+
+        // Fall back to facing direction if no input
+        if (dx === 0 && dy === 0) {
+            switch (this.facing) {
+                case 'right': dx = 1; break;
+                case 'left': dx = -1; break;
+                case 'down': dy = 1; break;
+                case 'up': dy = -1; break;
+            }
+        }
+
+        // Normalize diagonal
+        if (dx !== 0 && dy !== 0) {
+            const len = Math.sqrt(dx * dx + dy * dy);
+            dx /= len;
+            dy /= len;
+        }
+
+        this.dashing = true;
+        this.dashDirection = { x: dx, y: dy };
+        this.dashEndTime = currentTime + this.dashDuration;
+        this.dashTimer = currentTime + this.dashDuration + this.dashCooldown;
+        return true;
+    }
+
     update(dt) {
+        // Dash timing
+        const now = performance.now();
+        if (this.dashing && now > this.dashEndTime) {
+            this.dashing = false;
+            this.dashDirection = { x: 0, y: 0 };
+        }
+
         if (this.moving) {
             this.animationCounter += this.animationSpeed;
             const walkKey = `${this.facing}_walk`;
@@ -181,7 +227,8 @@ class Player {
             ctx.strokeRect(drawX, drawY, this.width, this.height);
             ctx.fillStyle = 'lime';
             ctx.font = '10px monospace';
-            ctx.fillText(`${this.facing} ${this.moving ? 'walk' : 'idle'} f:${this.frame}`, drawX, drawY - 4);
+            const dashInfo = this.dashing ? ' DASH' : (performance.now() < this.dashTimer ? ' cd' : '');
+            ctx.fillText(`${this.facing} ${this.moving ? 'walk' : 'idle'} f:${this.frame}${dashInfo}`, drawX, drawY - 4);
         }
     }
 }
