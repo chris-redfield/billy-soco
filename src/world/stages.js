@@ -10,7 +10,7 @@ const STAGES = {
         name: 'Endless Desert',
         type: 'infinite',
         groundColor: '#c9a070',
-        checkerboard: { tileSize: 64, color: '#b8875f', diagonal: true },
+        checkerboard: { tileSize: 77, color: '#b8875f', style: 'perspective' },
         rockCount: [5, 12],
         spawnX: BLOCK_W / 2 - 24,
         spawnY: BLOCK_H / 2 - 28,
