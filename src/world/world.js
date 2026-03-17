@@ -1,12 +1,13 @@
 /**
- * World - Seamless infinite world with block-based loading
+ * World - Seamless world with block-based loading
  *
- * Blocks are 1280x720 chunks. Only 9 blocks (3x3 around player) are loaded.
- * Camera follows the player. No transitions - player walks freely between blocks.
+ * Supports infinite stages (3x3 around player) and finite stages (predefined blocks with lava borders).
+ * Camera follows the player. Finite stages get camera clamping.
  */
 
 const BLOCK_W = 1280;
 const BLOCK_H = 720;
+const LAVA_W = 40;
 
 class WorldBlock {
     constructor(xCoord, yCoord) {
@@ -21,19 +22,30 @@ class WorldBlock {
 }
 
 class World {
-    constructor(game) {
+    constructor(game, stage) {
         this.game = game;
-        this.blocks = {};              // "x,y" -> WorldBlock
+        this.stage = stage;
+        this.blocks = {};
         this.currentBlockX = 0;
         this.currentBlockY = 0;
 
-        // Camera position (top-left corner of viewport in world coords)
         this.cameraX = 0;
         this.cameraY = 0;
+
+        // Cache valid block keys for finite stages
+        this._validBlocks = null;
+        if (stage.type === 'finite' && stage.blocks) {
+            this._validBlocks = new Set(stage.blocks.map(b => `${b[0]},${b[1]}`));
+        }
+    }
+
+    _isValidBlock(bx, by) {
+        if (this.stage.type === 'infinite') return true;
+        return this._validBlocks.has(`${bx},${by}`);
     }
 
     /**
-     * Load the 3x3 grid around a block coordinate. Unload anything outside.
+     * Load the 3x3 grid around a block coordinate (only valid blocks). Unload anything outside.
      */
     loadSurrounding(bx, by) {
         this.currentBlockX = bx;
@@ -42,10 +54,13 @@ class World {
         const needed = new Set();
         for (let dy = -1; dy <= 1; dy++) {
             for (let dx = -1; dx <= 1; dx++) {
-                const key = `${bx + dx},${by + dy}`;
+                const nbx = bx + dx;
+                const nby = by + dy;
+                if (!this._isValidBlock(nbx, nby)) continue;
+                const key = `${nbx},${nby}`;
                 needed.add(key);
                 if (!this.blocks[key]) {
-                    this.blocks[key] = this._generateBlock(bx + dx, by + dy);
+                    this.blocks[key] = this._generateBlock(nbx, nby);
                 }
             }
         }
@@ -62,17 +77,41 @@ class World {
      * Update camera to follow player and check if we need to load new blocks.
      */
     update(player) {
-        // Camera centers on player
         this.cameraX = player.x + player.width / 2 - this.game.width / 2;
         this.cameraY = player.y + player.height / 2 - this.game.height / 2;
 
-        // Which block is the player in?
+        // Clamp camera for finite stages
+        if (this.stage.type === 'finite') {
+            const b = this._getStageBounds();
+            if (b.w >= this.game.width) {
+                this.cameraX = Math.max(b.x, Math.min(this.cameraX, b.x + b.w - this.game.width));
+            } else {
+                this.cameraX = b.x + (b.w - this.game.width) / 2;
+            }
+            if (b.h >= this.game.height) {
+                this.cameraY = Math.max(b.y, Math.min(this.cameraY, b.y + b.h - this.game.height));
+            } else {
+                this.cameraY = b.y + (b.h - this.game.height) / 2;
+            }
+        }
+
         const bx = Math.floor(player.x / BLOCK_W);
         const by = Math.floor(player.y / BLOCK_H);
 
         if (bx !== this.currentBlockX || by !== this.currentBlockY) {
             this.loadSurrounding(bx, by);
         }
+    }
+
+    _getStageBounds() {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const [bx, by] of this.stage.blocks) {
+            minX = Math.min(minX, bx * BLOCK_W);
+            minY = Math.min(minY, by * BLOCK_H);
+            maxX = Math.max(maxX, (bx + 1) * BLOCK_W);
+            maxY = Math.max(maxY, (by + 1) * BLOCK_H);
+        }
+        return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
     }
 
     /**
@@ -89,37 +128,55 @@ class World {
     }
 
     /**
-     * Get all entities from all loaded blocks.
+     * Get all entities that render in the entity layer (excludes ground-layer like lava).
      */
     getAllEntities() {
         const all = [];
         for (const block of Object.values(this.blocks)) {
             for (const e of block.entities) {
-                all.push(e);
+                if (e.renderLayer !== 'ground') all.push(e);
             }
         }
         return all;
     }
 
     /**
-     * Render the ground for all loaded blocks.
+     * Check if the player overlaps a portal. Returns the portal or null.
+     */
+    getPortalAt(player) {
+        for (const block of Object.values(this.blocks)) {
+            for (const e of block.entities) {
+                if (e.entityType === 'portal') {
+                    if (player.x < e.x + e.width &&
+                        player.x + player.width > e.x &&
+                        player.y < e.y + e.height &&
+                        player.y + player.height > e.y) {
+                        return e;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Render the ground for all loaded blocks, then ground-layer entities (lava).
      */
     renderGround(ctx) {
         const cx = this.cameraX;
         const cy = this.cameraY;
 
         for (const block of Object.values(this.blocks)) {
-            const screenX = block.xCoord * BLOCK_W - cx;
-            const screenY = block.yCoord * BLOCK_H - cy;
+            const screenX = Math.round(block.xCoord * BLOCK_W - cx);
+            const screenY = Math.round(block.yCoord * BLOCK_H - cy);
 
-            // Skip if off-screen
             if (screenX + BLOCK_W < 0 || screenX > this.game.width ||
                 screenY + BLOCK_H < 0 || screenY > this.game.height) continue;
 
-            ctx.fillStyle = '#c2956b';
-            ctx.fillRect(screenX, screenY, BLOCK_W, BLOCK_H);
+            // +1 overlap to prevent sub-pixel seams between blocks
+            ctx.fillStyle = this.stage.groundColor;
+            ctx.fillRect(screenX, screenY, BLOCK_W + 1, BLOCK_H + 1);
 
-            // Subtle block border for debug
             if (this.game.showDebug) {
                 ctx.strokeStyle = 'rgba(255,255,255,0.3)';
                 ctx.lineWidth = 1;
@@ -127,6 +184,19 @@ class World {
                 ctx.fillStyle = 'rgba(255,255,255,0.5)';
                 ctx.font = '14px monospace';
                 ctx.fillText(`(${block.xCoord},${block.yCoord})`, screenX + 8, screenY + 20);
+            }
+        }
+
+        // Ground-layer entities (lava)
+        for (const block of Object.values(this.blocks)) {
+            for (const e of block.entities) {
+                if (e.renderLayer === 'ground') {
+                    const esx = e.x - cx;
+                    const esy = e.y - cy;
+                    if (esx + e.width < 0 || esx > this.game.width ||
+                        esy + e.height < 0 || esy > this.game.height) continue;
+                    e.render(ctx, this.game, cx, cy);
+                }
             }
         }
     }
@@ -144,19 +214,17 @@ class World {
             return (seed - 1) / 2147483646;
         }
 
-        // World-space origin of this block
         const ox = bx * BLOCK_W;
         const oy = by * BLOCK_H;
 
-        // Safe zone around center of origin block
-        const isOrigin = bx === 0 && by === 0;
-        const safeCX = ox + BLOCK_W / 2;
-        const safeCY = oy + BLOCK_H / 2;
-        const safeRadius = isOrigin ? 120 : 0;
+        // Safe zone
+        const sz = this.stage.safeZone;
+        const safeRadius = sz ? sz.radius : 0;
 
-        // Rocks: 5-12 per block
-        const rockCount = 5 + Math.floor(rand() * 8);
-        const margin = 30;
+        // Rocks
+        const [minRocks, maxRocks] = this.stage.rockCount;
+        const rockCount = minRocks + Math.floor(rand() * (maxRocks - minRocks + 1));
+        const margin = this.stage.type === 'finite' ? 60 : 30;
 
         for (let i = 0; i < rockCount; i++) {
             const type = Math.floor(rand() * 3) + 1;
@@ -166,13 +234,58 @@ class World {
             const y = oy + margin + rand() * (BLOCK_H - margin * 2 - size);
 
             // Skip if in safe zone
-            if (safeRadius > 0) {
-                const dx = (x + size / 2) - safeCX;
-                const dy = (y + size / 2) - safeCY;
+            if (safeRadius > 0 && sz) {
+                const dx = (x + size / 2) - sz.x;
+                const dy = (y + size / 2) - sz.y;
                 if (Math.sqrt(dx * dx + dy * dy) < safeRadius) continue;
             }
 
+            // Skip if overlapping a portal position
+            let overlapsPortal = false;
+            if (this.stage.portals) {
+                for (const p of this.stage.portals) {
+                    const pbx = Math.floor(p.x / BLOCK_W);
+                    const pby = Math.floor(p.y / BLOCK_H);
+                    if (pbx === bx && pby === by) {
+                        const dx = (x + size / 2) - (p.x + 24);
+                        const dy = (y + size / 2) - (p.y + 32);
+                        if (Math.sqrt(dx * dx + dy * dy) < 80) {
+                            overlapsPortal = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (overlapsPortal) continue;
+
             block.addEntity(new Rock(this.game, x, y, size, type));
+        }
+
+        // Add portals that belong to this block
+        if (this.stage.portals) {
+            for (const p of this.stage.portals) {
+                const pbx = Math.floor(p.x / BLOCK_W);
+                const pby = Math.floor(p.y / BLOCK_H);
+                if (pbx === bx && pby === by) {
+                    block.addEntity(new Portal(this.game, p.x, p.y, p.targetStage, p.label));
+                }
+            }
+        }
+
+        // Add lava boundaries for finite stages
+        if (this.stage.type === 'finite') {
+            if (!this._isValidBlock(bx, by - 1)) {
+                block.addEntity(new Lava(this.game, ox, oy, BLOCK_W, LAVA_W));
+            }
+            if (!this._isValidBlock(bx, by + 1)) {
+                block.addEntity(new Lava(this.game, ox, oy + BLOCK_H - LAVA_W, BLOCK_W, LAVA_W));
+            }
+            if (!this._isValidBlock(bx - 1, by)) {
+                block.addEntity(new Lava(this.game, ox, oy, LAVA_W, BLOCK_H));
+            }
+            if (!this._isValidBlock(bx + 1, by)) {
+                block.addEntity(new Lava(this.game, ox + BLOCK_W - LAVA_W, oy, LAVA_W, BLOCK_H));
+            }
         }
 
         return block;
