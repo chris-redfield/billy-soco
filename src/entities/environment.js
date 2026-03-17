@@ -23,19 +23,22 @@ class Rock {
         return this._rect;
     }
 
-    render(ctx, game) {
+    render(ctx, game, camX, camY) {
+        const sx = this.x - camX;
+        const sy = this.y - camY;
+
         const sprite = game.getImage(this.spriteKey);
         if (sprite) {
-            ctx.drawImage(sprite, this.x, this.y, this.width, this.height);
+            ctx.drawImage(sprite, sx, sy, this.width, this.height);
         } else {
             ctx.fillStyle = '#787878';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.fillRect(sx, sy, this.width, this.height);
         }
 
         if (game.showDebug) {
             ctx.strokeStyle = 'yellow';
             ctx.lineWidth = 1;
-            ctx.strokeRect(this.x, this.y, this.width, this.height);
+            ctx.strokeRect(sx, sy, this.width, this.height);
         }
     }
 }

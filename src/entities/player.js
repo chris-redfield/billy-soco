@@ -89,10 +89,6 @@ class Player {
             let newX = this.x + dx;
             let newY = this.y + dy;
 
-            // Boundary clamp
-            newX = Math.max(0, Math.min(newX, this.game.width - this.width));
-            newY = Math.max(0, Math.min(newY, this.game.height - this.height));
-
             // Check X axis
             let xBlocked = false;
             for (const obs of obstacles) {
@@ -136,7 +132,10 @@ class Player {
         return this._rect;
     }
 
-    render(ctx, game) {
+    render(ctx, game, camX, camY) {
+        const drawX = this.x - camX;
+        const drawY = this.y - camY;
+
         let spriteData;
         const walkKey = `${this.facing}_walk`;
         const idleKey = `${this.facing}_idle`;
@@ -151,7 +150,7 @@ class Player {
         if (spriteData && spriteData.image) {
             ctx.save();
             if (spriteData.flipped) {
-                ctx.translate(this.x + this.width, this.y);
+                ctx.translate(drawX + this.width, drawY);
                 ctx.scale(-1, 1);
                 ctx.drawImage(
                     spriteData.image,
@@ -162,29 +161,27 @@ class Player {
                 ctx.drawImage(
                     spriteData.image,
                     spriteData.sx, spriteData.sy, spriteData.sw, spriteData.sh,
-                    this.x, this.y, spriteData.width, spriteData.height
+                    drawX, drawY, spriteData.width, spriteData.height
                 );
             }
             ctx.restore();
         } else {
-            // Fallback rectangle
             ctx.fillStyle = '#ff6b35';
-            ctx.fillRect(this.x, this.y, this.width, this.height);
+            ctx.fillRect(drawX, drawY, this.width, this.height);
             ctx.fillStyle = '#fff';
             ctx.font = '10px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText('BILLY', this.x + this.width / 2, this.y + this.height / 2 + 4);
+            ctx.fillText('BILLY', drawX + this.width / 2, drawY + this.height / 2 + 4);
             ctx.textAlign = 'left';
         }
 
-        // Debug collision box
         if (game.showDebug) {
             ctx.strokeStyle = 'lime';
             ctx.lineWidth = 1;
-            ctx.strokeRect(this.x, this.y, this.width, this.height);
+            ctx.strokeRect(drawX, drawY, this.width, this.height);
             ctx.fillStyle = 'lime';
             ctx.font = '10px monospace';
-            ctx.fillText(`${this.facing} ${this.moving ? 'walk' : 'idle'} f:${this.frame}`, this.x, this.y - 4);
+            ctx.fillText(`${this.facing} ${this.moving ? 'walk' : 'idle'} f:${this.frame}`, drawX, drawY - 4);
         }
     }
 }
