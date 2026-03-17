@@ -177,6 +177,71 @@ class World {
             ctx.fillStyle = this.stage.groundColor;
             ctx.fillRect(screenX, screenY, BLOCK_W + 1, BLOCK_H + 1);
 
+            // Checkerboard pattern (world-coordinate aligned for seamless tiling)
+            if (this.stage.checkerboard) {
+                const cb = this.stage.checkerboard;
+                const ts = cb.tileSize;
+                const ox = block.xCoord * BLOCK_W;
+                const oy = block.yCoord * BLOCK_H;
+
+                ctx.fillStyle = cb.color;
+
+                if (cb.diagonal) {
+                    // Diagonal: diamond tiles using rotated grid (u=wx+wy, v=wx-wy)
+                    const hs = ts / 2;
+                    const uMin = ox + oy;
+                    const uMax = ox + BLOCK_W + oy + BLOCK_H;
+                    const vMin = ox - oy - BLOCK_H;
+                    const vMax = ox + BLOCK_W - oy;
+                    const startIU = Math.floor(uMin / ts);
+                    const endIU = Math.ceil(uMax / ts);
+                    const startIV = Math.floor(vMin / ts);
+                    const endIV = Math.ceil(vMax / ts);
+                    const gw = this.game.width;
+                    const gh = this.game.height;
+
+                    ctx.beginPath();
+                    for (let iu = startIU; iu < endIU; iu++) {
+                        for (let iv = startIV; iv < endIV; iv++) {
+                            if ((iu + iv) % 2 === 0) continue;
+
+                            // Bounding box screen check
+                            const bbx = (iu + iv) * hs - cx;
+                            const bby = (iu - iv - 1) * hs - cy;
+                            if (bbx + ts < 0 || bbx > gw || bby + ts < 0 || bby > gh) continue;
+
+                            // Diamond vertices in world coords → screen
+                            const bx = (iu + iv) * hs;
+                            const by = (iu - iv) * hs;
+                            ctx.moveTo(Math.round(bx - cx), Math.round(by - cy));
+                            ctx.lineTo(Math.round(bx + hs - cx), Math.round(by + hs - cy));
+                            ctx.lineTo(Math.round(bx + ts - cx), Math.round(by - cy));
+                            ctx.lineTo(Math.round(bx + hs - cx), Math.round(by - hs - cy));
+                            ctx.closePath();
+                        }
+                    }
+                    ctx.fill();
+                } else {
+                    // Standard axis-aligned checkerboard
+                    const startTX = Math.floor(ox / ts);
+                    const startTY = Math.floor(oy / ts);
+                    const endTX = Math.ceil((ox + BLOCK_W) / ts);
+                    const endTY = Math.ceil((oy + BLOCK_H) / ts);
+
+                    for (let ty = startTY; ty < endTY; ty++) {
+                        for (let tx = startTX; tx < endTX; tx++) {
+                            if ((tx + ty) % 2 === 0) continue;
+                            const drawX = Math.max(tx * ts, ox);
+                            const drawY = Math.max(ty * ts, oy);
+                            const drawW = Math.min(tx * ts + ts, ox + BLOCK_W) - drawX;
+                            const drawH = Math.min(ty * ts + ts, oy + BLOCK_H) - drawY;
+                            if (drawW <= 0 || drawH <= 0) continue;
+                            ctx.fillRect(Math.round(drawX - cx), Math.round(drawY - cy), drawW, drawH);
+                        }
+                    }
+                }
+            }
+
             if (this.game.showDebug) {
                 ctx.strokeStyle = 'rgba(255,255,255,0.3)';
                 ctx.lineWidth = 1;
