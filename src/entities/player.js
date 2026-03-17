@@ -31,18 +31,7 @@ class Player {
 
     loadSprites() {
         const spriteSheet = new SpriteSheet(this.game);
-        const frameData = this.game.getJSON('billy_sprites');
-
-        if (!frameData) {
-            console.warn('No sprite data loaded - using fallback rectangle');
-            this.sprites = {
-                down_idle: [], down_walk: [], up_idle: [], up_walk: [],
-                right_idle: [], right_walk: [], left_idle: [], left_walk: []
-            };
-            return;
-        }
-
-        const result = spriteSheet.loadSprites(frameData, this.width, this.height);
+        const result = spriteSheet.loadSprites(this.width, this.height);
         this.sprites = result.sprites;
     }
 
@@ -65,7 +54,7 @@ class Player {
         }
     }
 
-    move(dx, dy) {
+    move(dx, dy, obstacles = []) {
         if (dx !== 0 || dy !== 0) {
             this.moving = true;
 
@@ -96,15 +85,47 @@ class Player {
             this.lastDx = dx;
             this.lastDy = dy;
 
-            // Move with boundary clamping
-            this.x = Math.max(0, Math.min(this.x + dx, this.game.width - this.width));
-            this.y = Math.max(0, Math.min(this.y + dy, this.game.height - this.height));
+            // Per-axis collision: try X first, then Y (allows sliding along walls)
+            let newX = this.x + dx;
+            let newY = this.y + dy;
+
+            // Boundary clamp
+            newX = Math.max(0, Math.min(newX, this.game.width - this.width));
+            newY = Math.max(0, Math.min(newY, this.game.height - this.height));
+
+            // Check X axis
+            let xBlocked = false;
+            for (const obs of obstacles) {
+                if (this._collides(newX, this.y, obs)) {
+                    xBlocked = true;
+                    break;
+                }
+            }
+            if (!xBlocked) this.x = newX;
+
+            // Check Y axis
+            let yBlocked = false;
+            for (const obs of obstacles) {
+                if (this._collides(this.x, newY, obs)) {
+                    yBlocked = true;
+                    break;
+                }
+            }
+            if (!yBlocked) this.y = newY;
         } else {
             this.moving = false;
             this.dominantAxis = null;
             this.lastDx = 0;
             this.lastDy = 0;
         }
+    }
+
+    _collides(testX, testY, obstacle) {
+        const r = obstacle.getRect();
+        return testX < r.x + r.width &&
+               testX + this.width > r.x &&
+               testY < r.y + r.height &&
+               testY + this.height > r.y;
     }
 
     getRect() {

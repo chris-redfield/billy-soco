@@ -9,7 +9,7 @@ class Game {
         this.width = 1280;
         this.height = 720;
         this.targetFPS = 60;
-        this.backgroundColor = '#2d5a27'; // Grassy green
+        this.backgroundColor = '#c2956b'; // Desert sand
 
         this.canvas.width = this.width;
         this.canvas.height = this.height;
@@ -69,8 +69,13 @@ class Game {
     async loadAssets() {
         try {
             await Promise.all([
-                this.loadImage('billy_spritesheet', 'assets/billy-sprite-sheet.png'),
-                this.loadJSON('billy_sprites', 'assets/billy-sprites.json')
+                this.loadImage('facing_down', 'assets/sprites/facing_down.png'),
+                this.loadImage('facing_up', 'assets/sprites/facing_up.png'),
+                this.loadImage('facing_right', 'assets/sprites/facing_right.png'),
+                this.loadImage('facing_left', 'assets/sprites/facing_left.png'),
+                this.loadImage('rock1', 'game-learning/assets/rock/rock1.png'),
+                this.loadImage('rock2', 'game-learning/assets/rock/rock2.png'),
+                this.loadImage('rock3', 'game-learning/assets/rock/rock3.png')
             ]);
             this.assets.loaded = true;
             console.log('Assets loaded');

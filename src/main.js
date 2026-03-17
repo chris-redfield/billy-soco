@@ -34,9 +34,10 @@ async function init() {
 
 function updateGame(dt) {
     const player = gameState.player;
+    const obstacles = gameState.world.getObstacles();
     const movement = game.input.getMovementVector();
 
-    player.move(movement.x * player.speed, movement.y * player.speed);
+    player.move(movement.x * player.speed, movement.y * player.speed, obstacles);
     player.update(dt);
 }
 
@@ -44,8 +45,13 @@ function renderGame(ctx) {
     // Draw world ground
     gameState.world.render(ctx);
 
-    // Draw player
-    gameState.player.render(ctx, game);
+    // Collect all renderables and depth-sort by bottom edge (y + height)
+    const renderables = [...gameState.world.entities, gameState.player];
+    renderables.sort((a, b) => (a.y + a.height) - (b.y + b.height));
+
+    for (const entity of renderables) {
+        entity.render(ctx, game);
+    }
 }
 
 window.addEventListener('load', init);

@@ -1,28 +1,20 @@
 /**
- * SpriteSheet - Loads Billy Soco sprites from the spritesheet
- * Uses frame coordinates exported from the sprite-selector tool
+ * SpriteSheet - Loads Billy Soco sprites from per-direction strip files.
+ *
+ * Each strip file (e.g. facing_down.png) contains frames laid out horizontally:
+ *   [idle] [walk1] [walk2] [walk3]
+ * All frames are FRAME_W x FRAME_H with SPACING px gaps between them.
  */
 class SpriteSheet {
     constructor(game) {
         this.game = game;
     }
 
-    /**
-     * Load Billy's sprites using frame coordinate data.
-     * frameData is an object like:
-     * {
-     *   "down_idle": [{ x, y, w, h }],
-     *   "up_idle": [{ x, y, w, h }],
-     *   "right_idle": [{ x, y, w, h }],
-     *   "left_idle": [{ x, y, w, h }],
-     *   "down_walk": [{ x, y, w, h }, ...],
-     *   "up_walk": [{ x, y, w, h }, ...],
-     *   "right_walk": [{ x, y, w, h }, ...],
-     *   "left_walk": [{ x, y, w, h }, ...]
-     * }
-     */
-    loadSprites(frameData, targetWidth, targetHeight) {
-        const spritesheet = this.game.getImage('billy_spritesheet');
+    loadSprites(targetWidth, targetHeight) {
+        const FRAME_W = 55;
+        const FRAME_H = 85;
+        const SPACING = 10;
+        const DIRECTIONS = ['down', 'up', 'right', 'left'];
 
         const sprites = {
             down_idle: [], down_walk: [],
@@ -31,27 +23,32 @@ class SpriteSheet {
             left_idle: [], left_walk: []
         };
 
-        for (const [key, frames] of Object.entries(frameData)) {
-            if (!sprites[key]) continue;
+        for (const dir of DIRECTIONS) {
+            const img = this.game.getImage(`facing_${dir}`);
+            if (!img) continue;
 
-            sprites[key] = frames.map(frame => ({
-                image: spritesheet,
-                sx: frame.x,
-                sy: frame.y,
-                sw: frame.w,
-                sh: frame.h,
-                width: targetWidth,
-                height: targetHeight,
-                flipped: false
-            }));
-        }
+            // Frame 0 = idle, frames 1-3 = walk
+            const numFrames = Math.round((img.width + SPACING) / (FRAME_W + SPACING));
 
-        // If left sprites not provided, flip right sprites
-        if (sprites.left_idle.length === 0 && sprites.right_idle.length > 0) {
-            sprites.left_idle = sprites.right_idle.map(s => ({ ...s, flipped: true }));
-        }
-        if (sprites.left_walk.length === 0 && sprites.right_walk.length > 0) {
-            sprites.left_walk = sprites.right_walk.map(s => ({ ...s, flipped: true }));
+            for (let i = 0; i < numFrames; i++) {
+                const sx = i * (FRAME_W + SPACING);
+                const spriteData = {
+                    image: img,
+                    sx: sx,
+                    sy: 0,
+                    sw: FRAME_W,
+                    sh: FRAME_H,
+                    width: targetWidth,
+                    height: targetHeight,
+                    flipped: false
+                };
+
+                if (i === 0) {
+                    sprites[`${dir}_idle`].push(spriteData);
+                } else {
+                    sprites[`${dir}_walk`].push(spriteData);
+                }
+            }
         }
 
         return { sprites };
