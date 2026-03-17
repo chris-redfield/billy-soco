@@ -73,9 +73,9 @@ class Game {
                 this.loadImage('facing_up', 'assets/sprites/facing_up.png'),
                 this.loadImage('facing_right', 'assets/sprites/facing_right.png'),
                 this.loadImage('facing_left', 'assets/sprites/facing_left.png'),
-                this.loadImage('rock1', 'game-learning/assets/rock/rock1.png'),
-                this.loadImage('rock2', 'game-learning/assets/rock/rock2.png'),
-                this.loadImage('rock3', 'game-learning/assets/rock/rock3.png')
+                this.loadImage('rock1', 'assets/rock1.png'),
+                this.loadImage('rock2', 'assets/rock2.png'),
+                this.loadImage('rock3', 'assets/rock3.png')
             ]);
             this.assets.loaded = true;
             console.log('Assets loaded');
