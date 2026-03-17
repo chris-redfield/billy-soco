@@ -21,12 +21,17 @@ body {
     align-items: center;
 }
 
-#game-canvas {
+#game-canvas,
+#crt-canvas {
     border: 2px solid #4a4a6a;
     border-radius: 4px;
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
     image-rendering: pixelated;
     image-rendering: crisp-edges;
+}
+
+#crt-canvas {
+    display: none;
 }
 
 #fps-counter {

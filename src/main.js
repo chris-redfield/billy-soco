@@ -16,6 +16,8 @@ async function init() {
     game = new Game('game-canvas');
     await game.loadAssets();
 
+    game.crt = new CRTFilter(game.canvas);
+
     loadStage(STAGES[1]);
 
     game.onUpdate = (dt) => updateGame(dt);
@@ -72,6 +74,11 @@ function updateGame(dt) {
     player.move(dx, dy, obstacles);
     player.update(dt);
     world.update(player);
+
+    // CRT toggle
+    if (game.input.isKeyJustPressed('crt')) {
+        game.crt.toggle();
+    }
 
     // Portal interaction
     if (game.input.isKeyJustPressed('interact')) {

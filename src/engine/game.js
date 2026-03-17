@@ -31,6 +31,7 @@ class Game {
         // State
         this.running = false;
         this.showDebug = false;
+        this.crt = null;
 
         // Input
         this.input = new InputHandler();
@@ -45,6 +46,7 @@ class Game {
         const scale = Math.min(maxW / this.width, maxH / this.height, 1);
         this.canvas.style.width = `${this.width * scale}px`;
         this.canvas.style.height = `${this.height * scale}px`;
+        if (this.crt) this.crt.syncSize();
     }
 
     loadImage(key, src) {
@@ -129,6 +131,7 @@ class Game {
         this.ctx.fillStyle = this.backgroundColor;
         this.ctx.fillRect(0, 0, this.width, this.height);
         if (this.onRender) this.onRender(this.ctx);
+        if (this.crt && this.crt.enabled) this.crt.render();
 
         requestAnimationFrame((t) => this.gameLoop(t));
     }
